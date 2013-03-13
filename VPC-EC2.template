@@ -1,0 +1,120 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "AWS CloudFormation template to deploy EC2 instance or instances to a VPC using an Auto Scaling Group.",
+
+  "Mappings" : {
+        "AmazonLinuxAMI"   : {
+            "eu-west-1"       : { "Id" : "ami-c37474b7" },
+            "sa-east-1"       : { "Id" : "ami-1e08d103" },
+            "us-east-1"       : { "Id" : "ami-1624987f" },
+            "ap-northeast-1"  : { "Id" : "ami-4e6cd34f" },
+            "us-west-2"       : { "Id" : "ami-2a31bf1a" },
+            "us-west-1"       : { "Id" : "ami-1bf9de5e" },
+            "ap-southeast-1"  : { "Id" : "ami-a6a7e7f4" },
+            "ap-southeast-2"  : { "Id" : "ami-bd990e87" }
+        }
+  },
+
+  "Parameters" : {
+
+    "InstanceType" : {
+      "Description" : "EC2 instance type",
+      "Type" : "String",
+      "Default" : "t1.micro",
+      "AllowedValues" : [ "t1.micro","m1.small","m1.medium","m1.large","m1.xlarge","m2.xlarge","m2.2xlarge","m2.4xlarge","m3.xlarge","m3.2xlarge","c1.medium","c1.xlarge","cc1.4xlarge","cc2.8xlarge","cg1.4xlarge","hi1.4xlarge"],
+      "ConstraintDescription" : "Must be a valid EC2 instance type."
+    },
+
+    "KeyName" : {
+      "Description" : "Name of and existing EC2 KeyPair to enable remote access to the instance",
+      "Type" : "String"
+    },
+
+    "InstanceName" : {
+      "Description" : "Name of the new instances",
+      "Type" : "String"
+    },
+
+    "InstanceCount" : {
+      "Description" : "Number of EC2 instances to launch",
+      "Type" : "Number",
+      "Default" : "1"
+    },
+
+    "AmiId" : {
+      "Description" : "AMI Id to deploy instance from",
+      "Type" : "String"
+    },
+
+    "VpcId" : {
+      "Type" : "String",
+      "Description" : "VPC Id of your existing Virtual Private Cloud (VPC)"
+    },
+
+    "AZs" : {
+      "Type" : "CommaDelimitedList",
+      "Description" : "Comma separated list of Availability Zones for your Virtual Private Cloud (VPC)"
+    },
+
+    "Subnets" : {
+      "Type" : "CommaDelimitedList",
+      "Description" : "Comma separated list of subnet ids for the ASG to span in the Virtual Private Cloud (VPC)"
+    },
+
+    "UserData" : {
+      "Type" : "String",
+      "Description" : "Userdata file to download and execute on instances"
+    }
+
+  },
+
+  "Resources" : {
+
+    "InstanceSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VpcId" },
+        "GroupDescription" : "Enable remote access",
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "22", "ToPort" : "22", "CidrIp" : "0.0.0.0/0" },
+          { "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0" },
+          { "IpProtocol" : "tcp", "FromPort" : "3389", "ToPort" : "3389", "CidrIp" : "0.0.0.0/0" }
+         ]
+      }
+    },
+
+    "LaunchConfig" : {
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Properties" : {
+        "ImageId" : { "Ref" : "AmiId" }, 
+        "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "KeyName" : { "Ref" : "KeyName" },
+        "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
+        	{ "Ref" : "UserData" }, "\n"
+		] ] } } 
+      }
+    },
+
+    "AutoScalingGroup" : {
+      "Type" : "AWS::AutoScaling::AutoScalingGroup",
+      "Properties" : {
+        "AvailabilityZones" : { "Ref" : "AZs" },
+        "VPCZoneIdentifier" : { "Ref" : "Subnets" },
+        "LaunchConfigurationName" : { "Ref" : "LaunchConfig" },
+        "MinSize" : { "Ref" : "InstanceCount" },
+        "MaxSize" : { "Ref" : "InstanceCount" },
+        "DesiredCapacity" : { "Ref" : "InstanceCount" },
+        "Tags" : [ { "Key" : "Name", "Value" : { "Ref" : "InstanceName" }, "PropagateAtLaunch" : "true" } ]
+      }
+    }
+  },
+
+  "Outputs" : {
+    "ASG" : {
+      "Description" : "AutoScaling Group created",
+      "Value" : { "Ref" : "AutoScalingGroup" }
+    }
+  }
+}

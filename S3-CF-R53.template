@@ -1,0 +1,68 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "AWS CloudFormation Template to create a CloudFront download distributon to a S3 bucket endpoint as specified via S3Bucket parameter.  Create a Route53 resource record for CloudFront distribution to CNAME of S3 Virtual Hosting Bucket.",
+
+  "Parameters" : {
+    "S3BucketShortName" : {
+      "Type" : "String",
+      "Description" : "Enter the Virtual Hosting Bucket Short Name, ie DNS shortname"
+    },
+    
+    "DNSDomainName" : {
+      "Type" : "String",
+      "Description" : "The DNS name of the bucket to use S3 Virtual Hosting of Bucket"
+    }
+  },
+
+  "Resources" : {
+
+    "NewDistribution" : {
+      "Type" : "AWS::CloudFront::Distribution",
+      "Properties" : {
+         "DistributionConfig" : {
+           "Aliases" : [ { "Fn::Join" : [ "", [ { "Ref" : "S3BucketShortName" }, ".", { "Ref" : "DNSDomainName" } ] ] } ],
+           "Origins" : [ { 
+                         "S3OriginConfig" : {
+                                              "OriginAccessIdentity" : ""
+                                            },
+                         "DomainName" : { "Fn::Join" : [ "", [ { "Ref"  : "S3BucketShortName" }, ".", { "Ref" : "DNSDomainName" }, ".s3.amazonaws.com" ] ] },
+                         "Id" : { "Fn::Join" : [ "", [ { "Ref" : "S3BucketShortName" }, ".", { "Ref" : "DNSDomainName" }, "-S3Origin" ] ] }
+	   } ],
+           "Enabled" : "true",
+           "DefaultCacheBehavior" : {
+                                      "TargetOriginId" : { "Fn::Join" : [ "", [ { "Ref" : "S3BucketShortName" }, ".", { "Ref" : "DNSDomainName" }, "-S3Origin" ] ] },
+                                      "ForwardedValues" : { "QueryString" : "false" },
+                                      "ViewerProtocolPolicy" : "allow-all"
+                                    }
+         }
+      }
+    },
+
+    "NewRoute53Record" : {
+      "Type" : "AWS::Route53::RecordSet",
+      "Properties" : {
+        "HostedZoneName" : { "Fn::Join" : [ "", [ { "Ref" : "DNSDomainName" }, "." ] ] },
+        "Comment" : { "Fn::Join" : ["", [ "CNAME redirect to", { "Ref" : "S3BucketShortName" }, ".", { "Ref" : "DNSDomainName" } ] ] },
+        "Name" : { "Fn::Join" : [ "", [ { "Ref" : "S3BucketShortName" }, ".", { "Ref" : "DNSDomainName" } ] ] },
+        "Type" : "CNAME",
+        "TTL" : "900",
+        "ResourceRecords" : [ { "Fn::GetAtt" : [ "NewDistribution", "DomainName" ] } ] 
+      }
+    }
+  },
+
+  "Outputs" : {
+    "DistributionId" : {
+       "Value" : { "Ref" : "NewDistribution" }
+    },
+
+    "DistributionName" : {
+       "Value" : { "Fn::Join" : [ "", [ "http://", { "Fn::GetAtt" : [ "NewDistribution", "DomainName" ] } ] ] }
+    },
+
+    "VirtualHostingBucket" : {
+       "Value" : { "Fn::Join" : [ "", [ "http://", { "Ref" : "S3BucketShortName" }, ".", { "Ref" : "DNSDomainName" } ] ] }
+    }
+  }
+}

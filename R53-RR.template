@@ -1,0 +1,56 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "AWS CloudFormation template to update an existing hosted zone record set with a resource record.",
+
+  "Parameters" : {
+    "RRName" : {
+      "Type" : "String",
+      "Description" : "Enter the record set resource record name"
+    },
+    
+    "RRType" : {
+      "Type" : "String",
+      "Description" : "Enter the record set resource record type",
+      "AllowedValues" : [ "A", "CNAME", "MX", "AAAA", "TXT", "PTR", "SRV", "SPF", "NS" ]
+    },
+
+    "RRValue" : {
+      "Type" : "String",
+      "Description" : "Enter the record set resource record value"
+    },
+
+    "HostedZone" : {
+      "Type" : "String",
+      "Description" : "Enter the hosted zone name to update"
+    }
+
+  },
+
+  "Resources" : {
+
+    "NewRoute53Record" : {
+      "Type" : "AWS::Route53::RecordSet",
+      "Properties" : {
+        "HostedZoneName" : { "Fn::Join" : [ "", [ { "Ref" : "HostedZone" }, "." ] ] },
+        "Comment" : { "Fn::Join" : ["", [ { "Ref" : "RRType" }, " resource record to ", { "Ref" : "RRValue" } ] ] },
+        "Name" : { "Ref" : "RRName" },
+        "Type" : { "Ref" : "RRType" },
+        "TTL" : "900",
+        "ResourceRecords" : [ { "Ref" : "RRValue" } ]
+      }
+    }
+  },
+
+  "Outputs" : {
+    "R53esourceRecord" : {
+       "Value" : { "Fn::Join" : [ "", [ { "Ref" : "RRName" }, " ", { "Ref" : "RRType" }, " ", { "Ref" : "RRValue" } ] ] }
+    },
+    "AZ1" : {
+       "Value" : { "Fn::Select" : [ "0", { "Fn::GetAZs" : {  "Ref" : "AWS::Region" } } ] }
+    }, 
+    "AZ2" : {
+       "Value" : { "Fn::Select" : [ "1", { "Fn::GetAZs" : {  "Ref" : "AWS::Region" } } ] }
+    } 
+  }
+}
